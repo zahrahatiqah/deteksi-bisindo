@@ -1,61 +1,22 @@
+from streamlit_webrtc import webrtc_streamer, RTCConfiguration
+import av
+import cv2
 
-import numpy as np
-import streamlit as st
-from sklearn.neighbors import KNeighborsClassifier
-import joblib  # Untuk memuat model KNN yang sudah dilatih
+cascade = cv2.CascadeClassifier("scaler.pkl")
 
-# Set judul aplikasi
-st.title("Real-Time Object Detection with KNN")
+class VideoProcessor:
+	def recv(self, frame):
+		frm = frame.to_ndarray(format="bgr24")
 
-# Load model KNN (pastikan file model sudah tersedia)
-model_path = "scaler.pkl"  # Ganti dengan path ke model KNN Anda
-try:
-    knn_model = joblib.load(model_path)
-    st.success("Model KNN berhasil dimuat.")
-except FileNotFoundError:
-    st.error("Model KNN tidak ditemukan. Pastikan model sudah dilatih dan disimpan.")
+		faces = cascade.detectMultiScale(cv2.cvtColor(frm, cv2.COLOR_BGR2GRAY), 1.1, 3)
 
-# Fungsi untuk mengekstrak fitur dari frame
-def extract_features(frame):
-    # Resize gambar untuk konsistensi ukuran
-    resized_frame = cv2.resize(frame, (64, 64))
-    # Konversi ke skala abu-abu
-    gray_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
-    # Hitung histogram sebagai fitur
-    hist = cv2.calcHist([gray_frame], [0], None, [256], [0, 256])
-    hist = cv2.normalize(hist, hist).flatten()
-    return hist
+		for x,y,w,h in faces:
+			cv2.rectangle(frm, (x,y), (x+w, y+h), (0,255,0), 3)
 
-# Fungsi untuk mendeteksi objek
-def detect_objects(frame):
-    features = extract_features(frame)  # Ekstraksi fitur dari frame
-    features = features.reshape(1, -1)  # Bentuk ulang untuk prediksi
-    label = knn_model.predict(features)[0]  # Prediksi kelas
-    confidence = knn_model.predict_proba(features).max()  # Confidence score
-    return label, confidence
+		return av.VideoFrame.from_ndarray(frm, format='bgr24')
 
-# Stream video dari webcam
-run = st.checkbox("Run Webcam")
-FRAME_WINDOW = st.image([], channels="BGR")  # Placeholder untuk video
-
-# cap = cv2.VideoCapture(0)  # Akses kamera utama
-# if not cap.isOpened():
-#     st.error("Webcam tidak dapat diakses!")
-
-# Jalankan deteksi secara real-time
-while run:
-    ret, frame = cap.read()
-    if not ret:
-        st.warning("Gagal membaca frame dari webcam.")
-        break
-
-    # Deteksi objek menggunakan KNN
-    label, confidence = detect_objects(frame)
-
-    # Tambahkan informasi label pada frame
-    cv2.putText(frame, f"{label} ({confidence:.2f})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-    # Tampilkan frame
-    FRAME_WINDOW.image(frame, channels="BGR")
-
-st.write("Webcam stopped.")
+webrtc_streamer(key="key", video_processor_factory=VideoProcessor,
+				rtc_configuration=RTCConfiguration(
+					{"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+					)
+	)
