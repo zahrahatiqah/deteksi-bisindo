@@ -3,3 +3,4 @@ ultralytics
 solutions
 opencv-python-headless
 scikit-learn
+mediapipe
