@@ -1,16 +1,16 @@
-import streamlit as st
+import ultralytics
+from ultralytics import solutions
 import cv2
 import numpy as np
+import streamlit as st
 from sklearn.neighbors import KNeighborsClassifier
 import joblib  # Untuk memuat model KNN yang sudah dilatih
 
-# Membuat Streamlit UI
-st.set_page_config(page_title="Ruang Belajar KNN", layout="wide", initial_sidebar_state="expanded")
+# Set judul aplikasi
+st.title("Real-Time Object Detection with KNN")
 
-st.title('Ruang Belajar Deployment KNN')
-
-# Load Model KNN
-model_path = "scaler.pkl"  # Ganti dengan path model KNN Anda
+# Load model KNN (pastikan file model sudah tersedia)
+model_path = "scaler.pkl"  # Ganti dengan path ke model KNN Anda
 try:
     knn_model = joblib.load(model_path)
     st.success("Model KNN berhasil dimuat.")
@@ -29,46 +29,36 @@ def extract_features(frame):
     return hist
 
 # Fungsi untuk mendeteksi objek
-def detect_objects(frame, model):
+def detect_objects(frame):
     features = extract_features(frame)  # Ekstraksi fitur dari frame
     features = features.reshape(1, -1)  # Bentuk ulang untuk prediksi
-    label = model.predict(features)[0]  # Prediksi kelas
-    confidence = model.predict_proba(features).max()  # Confidence score
+    label = knn_model.predict(features)[0]  # Prediksi kelas
+    confidence = knn_model.predict_proba(features).max()  # Confidence score
     return label, confidence
 
-# Membuat Function untuk proses dan display video
-def process_video(source, model, placeholder):
-    if source == 'Webcam':
-        camera = cv2.VideoCapture(0)  # Kode webcam
-    else:
-        st.warning("Saat ini hanya mendukung webcam.")
-        return
+# Stream video dari webcam
+run = st.checkbox("Run Webcam")
+FRAME_WINDOW = st.image([], channels="BGR")  # Placeholder untuk video
 
-    while True:
-        ret, frame = camera.read()
-        if not ret:
-            break
+cap = cv2.VideoCapture(0)  # Akses kamera utama
+if not cap.isOpened():
+    st.error("Webcam tidak dapat diakses!")
 
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        # Deteksi objek menggunakan KNN
-        label, confidence = detect_objects(frame, model)
+# Jalankan deteksi secara real-time
+while run:
+    ret, frame = cap.read()
+    if not ret:
+        st.warning("Gagal membaca frame dari webcam.")
+        break
 
-        # Tambahkan label dan confidence ke frame
-        cv2.putText(frame, f"{label} ({confidence:.2f})", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    # Deteksi objek menggunakan KNN
+    label, confidence = detect_objects(frame)
 
-        placeholder.image(frame)
+    # Tambahkan informasi label pada frame
+    cv2.putText(frame, f"{label} ({confidence:.2f})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    camera.release()
+    # Tampilkan frame
+    FRAME_WINDOW.image(frame, channels="BGR")
 
-# Sidebar
-with st.sidebar:
-    video_source = st.radio('Pilih data video', ['Webcam'])
-    process_placeholder = st.empty()
-
-# Process video
-with st.sidebar:
-    if st.button('Start'):
-        process_video(video_source, knn_model, process_placeholder)
-with st.sidebar:
-    st.image("logo.png", use_column_width=True)
+cap.release()
+st.write("Webcam stopped.")
