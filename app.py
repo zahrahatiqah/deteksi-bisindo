@@ -1,5 +1,5 @@
 import streamlit as st
-import opencv-python-headless
+import cv2
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 import joblib  # Untuk memuat model KNN yang sudah dilatih
