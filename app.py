@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, RTCConfiguration
+from streamlit import webrtc_streamer, RTCConfiguration
 import av
 import cv2
 
