@@ -2,3 +2,4 @@ streamlit
 ultralytics
 solutions
 opencv-python-headless
+scikit-learn
