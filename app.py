@@ -1,3 +1,4 @@
+
 import numpy as np
 import streamlit as st
 from sklearn.neighbors import KNeighborsClassifier
@@ -57,5 +58,4 @@ while run:
     # Tampilkan frame
     FRAME_WINDOW.image(frame, channels="BGR")
 
-cap.release()
 st.write("Webcam stopped.")
