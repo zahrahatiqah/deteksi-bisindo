@@ -1,4 +1,3 @@
-import ultralytics
 from ultralytics import solutions
 import cv2
 import numpy as np
