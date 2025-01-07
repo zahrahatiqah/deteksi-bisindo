@@ -1,85 +1,74 @@
+import streamlit as st
 import cv2
 import numpy as np
-import streamlit as st
-import mediapipe as mp
 from sklearn.neighbors import KNeighborsClassifier
-import joblib
+import joblib  # Untuk memuat model KNN yang sudah dilatih
 
-# Set judul aplikasi
-st.title("Real-Time BISINDO Detection with KNN")
+# Membuat Streamlit UI
+st.set_page_config(page_title="Ruang Belajar KNN", layout="wide", initial_sidebar_state="expanded")
 
-# Load model KNN
-model_path = "scaler.pkl"  # Ganti dengan path model Anda
+st.title('Ruang Belajar Deployment KNN')
+
+# Load Model KNN
+model_path = "scaler.pkl"  # Ganti dengan path model KNN Anda
 try:
     knn_model = joblib.load(model_path)
     st.success("Model KNN berhasil dimuat.")
 except FileNotFoundError:
     st.error("Model KNN tidak ditemukan. Pastikan model sudah dilatih dan disimpan.")
 
-# Inisialisasi MediaPipe Hands
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands()
-
-# Fungsi untuk mengekstrak landmark
-def extract_landmarks(frame):
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb_frame)
-    hand_landmarks_list = []
-
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            hand_landmarks_list.append(hand_landmarks)
-    
-    return hand_landmarks_list
+# Fungsi untuk mengekstrak fitur dari frame
+def extract_features(frame):
+    # Resize gambar untuk konsistensi ukuran
+    resized_frame = cv2.resize(frame, (64, 64))
+    # Konversi ke skala abu-abu
+    gray_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+    # Hitung histogram sebagai fitur
+    hist = cv2.calcHist([gray_frame], [0], None, [256], [0, 256])
+    hist = cv2.normalize(hist, hist).flatten()
+    return hist
 
 # Fungsi untuk mendeteksi objek
-def detect_bisindo(frame, hand_landmarks_list):
-    if len(hand_landmarks_list) == 2:
-        hand_1 = hand_landmarks_list[0]
-        hand_2 = hand_landmarks_list[1]
-        
-        combined_landmarks = []
-        for landmark in hand_1.landmark:
-            combined_landmarks.extend([landmark.x, landmark.y, landmark.z])
-        for landmark in hand_2.landmark:
-            combined_landmarks.extend([landmark.x, landmark.y, landmark.z])
+def detect_objects(frame, model):
+    features = extract_features(frame)  # Ekstraksi fitur dari frame
+    features = features.reshape(1, -1)  # Bentuk ulang untuk prediksi
+    label = model.predict(features)[0]  # Prediksi kelas
+    confidence = model.predict_proba(features).max()  # Confidence score
+    return label, confidence
 
-        prediction = knn_model.predict([combined_landmarks])[0]
-        probabilities = knn_model.predict_proba([combined_landmarks])
-        accuracy = np.max(probabilities) * 100
-        return prediction, accuracy
-    return None, None
+# Membuat Function untuk proses dan display video
+def process_video(source, model, placeholder):
+    if source == 'Webcam':
+        camera = cv2.VideoCapture(0)  # Kode webcam
+    else:
+        st.warning("Saat ini hanya mendukung webcam.")
+        return
 
-# Streamlit checkbox untuk menjalankan webcam
-run = st.checkbox("Run Webcam")
-FRAME_WINDOW = st.image([])  # Placeholder untuk video
-
-cap = cv2.VideoCapture(0)  # Akses kamera utama
-
-if not cap.isOpened():
-    st.error("Webcam tidak dapat diakses!")
-
-# Jika Run Webcam dicentang
-if run:
-    while run:
-        ret, frame = cap.read()
+    while True:
+        ret, frame = camera.read()
         if not ret:
-            st.warning("Gagal membaca frame dari webcam.")
             break
 
-        frame = cv2.flip(frame, 1)
-        hand_landmarks_list = extract_landmarks(frame)
-        
-        prediction, accuracy = detect_bisindo(frame, hand_landmarks_list)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Deteksi objek menggunakan KNN
+        label, confidence = detect_objects(frame, model)
 
-        if prediction:
-            # Tampilkan prediksi dan akurasi pada frame
-            cv2.putText(frame, f'{prediction} ({accuracy:.2f}%)', (50, 50), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        # Tambahkan label dan confidence ke frame
+        cv2.putText(frame, f"{label} ({confidence:.2f})", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-        # Tampilkan frame di Streamlit
-        FRAME_WINDOW.image(frame, channels="BGR")
+        placeholder.image(frame)
 
-    cap.release()
-else:
-    st.write("Webcam stopped.")
+    camera.release()
+
+# Sidebar
+with st.sidebar:
+    video_source = st.radio('Pilih data video', ['Webcam'])
+    process_placeholder = st.empty()
+
+# Process video
+with st.sidebar:
+    if st.button('Start'):
+        process_video(video_source, knn_model, process_placeholder)
+with st.sidebar:
+    st.image("logo.png", use_column_width=True)
