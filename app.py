@@ -1,4 +1,3 @@
-import cv2
 import numpy as np
 import streamlit as st
 from sklearn.neighbors import KNeighborsClassifier
@@ -38,9 +37,9 @@ def detect_objects(frame):
 run = st.checkbox("Run Webcam")
 FRAME_WINDOW = st.image([], channels="BGR")  # Placeholder untuk video
 
-cap = cv2.VideoCapture(0)  # Akses kamera utama
-if not cap.isOpened():
-    st.error("Webcam tidak dapat diakses!")
+# cap = cv2.VideoCapture(0)  # Akses kamera utama
+# if not cap.isOpened():
+#     st.error("Webcam tidak dapat diakses!")
 
 # Jalankan deteksi secara real-time
 while run:
