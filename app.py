@@ -4,7 +4,7 @@ import av
 import cv2
 
 # Load the face detection model (Haar Cascade)
-cascade = cv2.CascadeClassifier("scaler.pkl")
+cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
 # Define the video processor class
 class VideoProcessor:
