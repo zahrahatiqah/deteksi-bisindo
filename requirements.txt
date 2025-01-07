@@ -1,4 +1,5 @@
 streamlit
+ultralytics
 solutions
 opencv-python-headless
 numpy
